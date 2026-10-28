@@ -1,3 +1,4 @@
+-- Active: 1793148023318@@127.0.0.1@5432@bd_plano_saude
 -- Recomeco: primeiro o que depende, depois o que e referenciado
 DROP TABLE IF EXISTS planilha_atendimento;
 DROP VIEW  IF EXISTS vw_dependente;
@@ -235,3 +236,78 @@ FROM
     paciente AS pad INNER JOIN pessoa AS ped ON ped.id = pad.pessoa_id
     INNER JOIN paciente AS pat ON pad.pessoa_id = pat.titular_id
     INNER JOIN pessoa AS pet ON pat.pessoa_id = pet.id;
+
+
+
+
+-- INNER JOIN
+SELECT
+    c.id AS consulta,
+    cv.nome AS convenio,
+    cv.id
+FROM
+    consulta AS c INNER JOIN convenio AS cv ON cv.id = c.convenio_id;
+
+--LEFT JOIN
+SELECT
+    c.id AS consulta,
+    cv.nome AS convenio,
+    cv.id
+FROM
+    consulta AS c LEFT JOIN convenio AS cv ON cv.id = c.convenio_id;
+
+--RIGHT JOIN
+SELECT
+    c.id AS consulta,
+    cv.nome AS convenio,
+    cv.id
+FROM
+    consulta AS c RIGHT JOIN convenio AS cv ON cv.id = c.convenio_id;
+
+--FULL JOIN
+SELECT
+    c.id AS consulta,
+    cv.nome AS convenio,
+    cv.id
+FROM
+    consulta AS c FULL JOIN convenio AS cv ON cv.id = c.convenio_id;
+
+--CROSS JOIN
+SELECT
+    c.id AS consuta,
+    cv.nome AS convenio,
+    c.convenio_id
+FROM
+    consulta AS c CROSS JOIN convenio AS cv;
+
+
+SELECT
+    ROUND(AVG(valor),2) AS media
+FROM
+    consulta;
+
+SELECT
+    c.id,
+    c.data_consulta,
+    c.valor
+FROM
+    consulta AS c
+WHERE
+    c.valor > (SELECT AVG(valor) FROM consulta);
+
+SELECT 
+    paciente_id
+FROM
+    consulta
+WHERE 
+    convenio_id IS NULL;
+
+SELECT
+    pe.id,
+    pe.nome
+FROM
+    pessoa AS pe
+WHERE
+    pe.id IN (SELECT paciente_id  FROM consulta WHERE convenio_id IS NULL)
+ORDER BY
+    pe.nome;
