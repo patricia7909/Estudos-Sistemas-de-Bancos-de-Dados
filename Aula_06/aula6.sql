@@ -1,4 +1,3 @@
--- Active: 1793148023318@@127.0.0.1@5432@bd_plano_saude
 -- Recomeco: primeiro o que depende, depois o que e referenciado
 DROP TABLE IF EXISTS planilha_atendimento;
 DROP VIEW  IF EXISTS vw_dependente;
@@ -59,6 +58,7 @@ CREATE TABLE medico (
     especialidade_id INTEGER NOT NULL REFERENCES especialidade (id)
 );
 
+
 -- Regra 6. Uma linha por par de medico e convenio
 CREATE TABLE credenciamento (
     medico_id   INTEGER NOT NULL REFERENCES medico (pessoa_id),
@@ -66,6 +66,7 @@ CREATE TABLE credenciamento (
     data_inicio DATE    NOT NULL,
     PRIMARY KEY (medico_id, convenio_id)
 );
+
 
 -- Regra 7
 CREATE TABLE consulta (
@@ -84,6 +85,16 @@ CREATE TABLE exame_solicitado (
     exame       TEXT    NOT NULL,
     PRIMARY KEY (consulta_id, numero)
 );
+
+-- Exemplo para comparacao: nao faz parte do modelo do consultorio
+CREATE TABLE resultado_exame (
+    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    consulta_id INTEGER NOT NULL,
+    numero      INTEGER NOT NULL,
+    laudo       TEXT    NOT NULL,
+    FOREIGN KEY (consulta_id, numero) REFERENCES exame_solicitado (consulta_id, numero)
+);
+
 
 INSERT INTO pessoa (nome, cpf, data_nascimento, logradouro, numero, bairro, cidade)
 VALUES
@@ -148,6 +159,7 @@ VALUES
     (17, 3, '2025-01-10'), (18, 1, '2024-06-01'), (18, 2, '2025-02-01'),
     (19, 1, '2025-05-20'), (20, 3, '2026-02-01');
 
+
 INSERT INTO consulta (paciente_id, medico_id, convenio_id, data_consulta, valor)
 VALUES
     ( 1, 16, 1,    '2026-08-03', 180.00),
@@ -179,135 +191,172 @@ VALUES
 
 
 
+
 SELECT
     *
 FROM
     pessoa;
 
-
 SELECT
-    *
-FROM
-    medico;
-
-SELECT
-    pe.nome,
-    pa.data_cadastro,
-    DATE_PART('year', AGE(CURRENT_DATE, pe.data_nascimento)) as idade
-FROM
-        paciente AS pa
-    INNER JOIN
-        pessoa AS pe
-    ON pe.id = pa.pessoa_id
-ORDER BY
-    idade;
-
--- pe.nome, m.crm, e.nome AS especialidade
-SELECT
-    pe.nome,
+    m.pessoa_id,
+    p.nome,
     m.crm,
-    e.nome AS especialidade
+    m.especialidade_id,
+    e.nome
 FROM
-    pessoa AS pe
-    INNER JOIN medico AS m ON m.pessoa_id = pe.id
-    INNER JOIN especialidade AS e ON e.id = m.especialidade_id;
+    medico AS m INNER JOIN pessoa AS p ON p.id = m.pessoa_id
+    INNER JOIN especialidade AS e ON m.especialidade_id = e.id;
+
 
 SELECT
+    --pa.pessoa_id
     pe.id,
     pe.nome,
+    pa.data_cadastro,
     pa.titular_id
 FROM
-    paciente AS pa INNER JOIN pessoa AS pe ON pe.id = pa.pessoa_id
+    paciente as pa INNER JOIN pessoa AS pe ON pa.pessoa_id = pe.id;
+
+-- Nome do Paciente | Nome do Titular
+SELECT
+    ped.nome,
+    pad.titular_id
+FROM
+    paciente AS pad INNER JOIN pessoa AS ped ON pad.pessoa_id = ped.id
 WHERE
-    pa.titular_id IS NOT NULL;
+    pad.titular_id IS NOT NULL;
 
 
 SELECT
-    pet.id,
     pet.nome
 FROM
-    paciente AS pat INNER JOIN pessoa AS pet ON pet.id = pat.titular_id;
+    paciente AS pat INNER JOIN pessoa AS pet ON pat.titular_id = pet.id
+WHERE
+    pat.titular_id IS NOT NULL;
 
 
 SELECT
-    ped.nome AS dependete,
+    ped.nome AS dependente,
     pet.nome AS titular
 FROM
     paciente AS pad INNER JOIN pessoa AS ped ON ped.id = pad.pessoa_id
-    INNER JOIN paciente AS pat ON pad.pessoa_id = pat.titular_id
+    INNER JOIN paciente AS pat ON pad.titular_id = pat.pessoa_id
     INNER JOIN pessoa AS pet ON pat.pessoa_id = pet.id;
 
 
 
+SELECT
+    *
+FROM
+    consulta;
 
 -- INNER JOIN
 SELECT
     c.id AS consulta,
-    cv.nome AS convenio,
-    cv.id
+    cv.nome,
+    c.paciente_id
 FROM
     consulta AS c INNER JOIN convenio AS cv ON cv.id = c.convenio_id;
 
---LEFT JOIN
+
 SELECT
     c.id AS consulta,
     cv.nome AS convenio,
-    cv.id
+    c.paciente_id
 FROM
     consulta AS c LEFT JOIN convenio AS cv ON cv.id = c.convenio_id;
 
---RIGHT JOIN
+
 SELECT
     c.id AS consulta,
-    cv.nome AS convenio,
-    cv.id
+    cv.nome AS convenio
 FROM
     consulta AS c RIGHT JOIN convenio AS cv ON cv.id = c.convenio_id;
 
---FULL JOIN
+
+
 SELECT
     c.id AS consulta,
-    cv.nome AS convenio,
-    cv.id
+    cv.nome AS convenio
 FROM
     consulta AS c FULL JOIN convenio AS cv ON cv.id = c.convenio_id;
 
---CROSS JOIN
+
+
 SELECT
-    c.id AS consuta,
+    c.id AS consulta,
     cv.nome AS convenio,
     c.convenio_id
 FROM
     consulta AS c CROSS JOIN convenio AS cv;
 
-
 SELECT
-    ROUND(AVG(valor),2) AS media
+    ROUND(AVG(valor),2) AS valor_medio
 FROM
     consulta;
 
 SELECT
-    c.id,
-    c.data_consulta,
-    c.valor
-FROM
-    consulta AS c
-WHERE
-    c.valor > (SELECT AVG(valor) FROM consulta);
-
-SELECT 
-    paciente_id
+    id,
+    valor
 FROM
     consulta
-WHERE 
-    convenio_id IS NULL;
+WHERE
+    valor > (SELECT AVG(valor) FROM consulta);
 
+
+-- Quais são so paciente que pagaram pelas suas consultas?
+-- paciente_id e nome do paciente.
 SELECT
-    pe.id,
     pe.nome
 FROM
     pessoa AS pe
 WHERE
-    pe.id IN (SELECT paciente_id  FROM consulta WHERE convenio_id IS NULL)
+    pe.id IN (SELECT paciente_id FROM consulta WHERE convenio_id IS NOT NULL);
+
+
+-- SELECT 1 FROM consulta;
+SELECT
+    c.paciente_id,
+    pa.pessoa_id
+FROM
+    consulta AS c RIGHT JOIN paciente AS pa ON c.paciente_id = pa.pessoa_id
 ORDER BY
-    pe.nome;
+    c.paciente_id;
+
+SELECT
+    paciente_id
+FROM
+    consulta;
+
+-- Pacientes que nunca tiveram consulta
+SELECT
+    pe.id,
+    pe.nome
+FROM
+    paciente AS pa INNER JOIN pessoa AS pe ON pe.id = pa.pessoa_id
+WHERE
+    NOT EXISTS (SELECT 1 FROM consulta AS c WHERE c.paciente_id = pa.pessoa_id);
+
+
+--Subconsulta SELECT
+SELECT
+    COUNT(*)
+FROM
+    paciente AS pa INNER JOIN pessoa AS pe ON pa.pessoa_id = pe.id;
+
+
+SELECT
+    *
+FROM
+    paciente;
+
+SELECT
+    pet.id,
+    pet.nome AS titular,
+    (SELECT COUNT(*) FROM paciente AS pad WHERE pad.titular_id = pat.pessoa_id) AS dependentes
+FROM
+    paciente AS pat INNER JOIN pessoa AS pet ON pet.id = pat.pessoa_id
+WHERE
+    pat.titular_id IS NULL;
+
+
